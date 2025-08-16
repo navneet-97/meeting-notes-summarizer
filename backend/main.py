@@ -21,7 +21,7 @@ app = FastAPI(title="AI Meeting Notes Summarizer")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*", "https://*.onrender.com", "http://localhost:3000"],
+    allow_origins=["*", "https://meeting-notes-backend-jtgr.onrender.com", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
