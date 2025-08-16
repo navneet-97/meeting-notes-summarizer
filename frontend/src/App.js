@@ -25,7 +25,7 @@ function App() {
 
   const loadTranscripts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transcripts`);
+      const response = await fetch(`${API_BASE_URL}api/transcripts`);
       const data = await response.json();
       setTranscripts(data.transcripts || []);
     } catch (error) {
@@ -41,7 +41,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transcripts`, {
+      const response = await fetch(`${API_BASE_URL}api/transcripts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +80,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transcripts/${currentTranscript.id}/generate-summary`, {
+      const response = await fetch(`${API_BASE_URL}api/transcripts/${currentTranscript.id}/generate-summary`, {
         method: 'POST',
       });
 
@@ -107,7 +107,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transcripts/${currentTranscript.id}/summary`, {
+      const response = await fetch(`${API_BASE_URL}api/transcripts/${currentTranscript.id}/summary`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +149,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transcripts/${currentTranscript.id}/email`, {
+      const response = await fetch(`${API_BASE_URL}api/transcripts/${currentTranscript.id}/email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +178,7 @@ function App() {
 
   const loadTranscript = async (transcriptId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transcripts/${transcriptId}`);
+      const response = await fetch(`${API_BASE_URL}api/transcripts/${transcriptId}`);
       if (response.ok) {
         const transcript = await response.json();
         setCurrentTranscript(transcript);
@@ -194,7 +194,7 @@ function App() {
     if (!window.confirm('Are you sure you want to delete this transcript?')) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transcripts/${transcriptId}`, {
+      const response = await fetch(`${API_BASE_URL}api/transcripts/${transcriptId}`, {
         method: 'DELETE',
       });
 
