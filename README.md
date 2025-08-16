@@ -13,8 +13,8 @@ An intelligent application that automatically summarizes meeting transcripts usi
 
 ## 🚀 Live Demo
 
-- **Application**: [Your Railway App URL]
-- **Backend API**: [Your Railway Backend URL]
+- **Frontend**: [Your Render Frontend URL]
+- **Backend API**: [Your Render Backend URL]
 
 ## 🛠️ Tech Stack
 
@@ -30,7 +30,7 @@ An intelligent application that automatically summarizes meeting transcripts usi
 - **React Textarea Autosize** - Auto-resizing text areas
 
 ### Deployment
-- **Railway** - Full-stack deployment platform
+- **Render** - Full-stack deployment platform
 
 ## 📋 Prerequisites
 
@@ -94,13 +94,62 @@ npm start
 
 ## 🚀 Deployment
 
-### Railway Deployment
-1. **Push code to GitHub**
-2. **Connect repository to [Railway.app](https://railway.app/)**
-3. **Add environment variables in Railway dashboard**
-4. **Deploy both frontend and backend services**
+### Render Deployment
 
-Railway will automatically detect your Python backend and React frontend, deploying them as separate services in the same project.
+#### Step 1: Prepare Your Repository
+```bash
+git add .
+git commit -m "Add Render deployment configuration"
+git push origin main
+```
+
+#### Step 2: Deploy Backend to Render
+1. **Go to [render.com](https://render.com/)**
+2. **Sign up/Login with GitHub**
+3. **Click "New +" → "Web Service"**
+4. **Connect your GitHub repository**
+5. **Configure the service**:
+   - **Name**: `meeting-notes-backend`
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r backend/requirements.txt`
+   - **Start Command**: `cd backend && python main.py`
+   - **Root Directory**: Leave empty (root of repo)
+
+#### Step 3: Set Backend Environment Variables
+In Render dashboard, add these environment variables:
+```
+MONGO_URL=mongodb+srv://username:password@cluster.mongodb.net/meeting_notes?retryWrites=true&w=majority
+GEMINI_API_KEY=your_gemini_api_key
+Email=tewatiatewatia382@gmail.com
+Pass=ylaw cuzv uzuy elfx
+```
+
+#### Step 4: Deploy Frontend to Render
+1. **In the same project, click "New +" → "Static Site"**
+2. **Connect the same GitHub repository**
+3. **Configure the service**:
+   - **Name**: `meeting-notes-frontend`
+   - **Root Directory**: `frontend`
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `build`
+
+#### Step 5: Set Frontend Environment Variable
+Add this environment variable:
+```
+REACT_APP_BACKEND_URL=https://your-backend-name.onrender.com
+```
+
+#### Step 6: Deploy
+- Both services will deploy automatically
+- Render provides HTTPS URLs for both frontend and backend
+- Environment variables are securely managed in Render dashboard
+
+**Benefits of Render:**
+- ✅ Free tier available (750 hours/month)
+- ✅ Automatic HTTPS and custom domains
+- ✅ Easy environment variable management
+- ✅ Built-in monitoring and logs
+- ✅ Simple GitHub integration
 
 ## 📁 Project Structure
 
@@ -144,15 +193,15 @@ This project is licensed under the MIT License.
 ## 🆘 Support
 
 If you encounter any issues:
-1. Check the Railway deployment logs
-2. Verify your environment variables in Railway dashboard
+1. Check the Render deployment logs
+2. Verify your environment variables in Render dashboard
 3. Ensure MongoDB Atlas is accessible
 4. Check Gmail app password settings
-5. Review Railway service health status
+5. Review Render service health status
 
 ## 🙏 Acknowledgments
 
 - Google Gemini AI for intelligent summarization
 - FastAPI for the robust backend framework
 - React and Tailwind CSS for the beautiful UI
-- Railway for seamless full-stack deployment
+- Render for seamless full-stack deployment
