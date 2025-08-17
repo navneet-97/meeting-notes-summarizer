@@ -29,11 +29,32 @@ app.add_middleware(
 
 # MongoDB connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-client = AsyncIOMotorClient(MONGO_URL)
-db = client.meeting_notes
+try:
+    client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+    # Validate connection
+    client.admin.command('ping')
+    print("Successfully connected to MongoDB")
+    db = client.meeting_notes
+except Exception as e:
+    print(f"Error connecting to MongoDB: {e}")
+    # Continue execution as the connection might be established later
+    client = AsyncIOMotorClient(MONGO_URL)
+    db = client.meeting_notes
 
 # Environment variables
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Add startup event to create indexes
+@app.on_event("startup")
+async def create_indexes():
+    try:
+        # Create indexes for better query performance
+        await db.transcripts.create_index("id", unique=True)
+        await db.transcripts.create_index("created_at")
+        await db.email_logs.create_index("transcript_id")
+        print("Database indexes created successfully")
+    except Exception as e:
+        print(f"Error creating database indexes: {e}")
 
 # Pydantic models
 class TranscriptCreate(BaseModel):
@@ -137,24 +158,36 @@ async def create_transcript(transcript: TranscriptCreate):
         "updated_at": None
     }
     
-    await db.transcripts.insert_one(transcript_doc)
-    return TranscriptResponse(**transcript_doc)
+    try:
+        await db.transcripts.insert_one(transcript_doc)
+        return TranscriptResponse(**transcript_doc)
+    except Exception as e:
+        print(f"Error creating transcript: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.get("/api/transcripts")
 async def get_transcripts():
     """Get all transcripts"""
-    transcripts = []
-    async for doc in db.transcripts.find().sort("created_at", -1):
-        transcripts.append(TranscriptResponse(**doc))
-    return {"transcripts": transcripts}
+    try:
+        transcripts = []
+        async for doc in db.transcripts.find().sort("created_at", -1):
+            transcripts.append(TranscriptResponse(**doc))
+        return {"transcripts": transcripts}
+    except Exception as e:
+        print(f"Error fetching transcripts: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.get("/api/transcripts/{transcript_id}", response_model=TranscriptResponse)
 async def get_transcript(transcript_id: str):
     """Get a specific transcript"""
-    transcript = await db.transcripts.find_one({"id": transcript_id})
-    if not transcript:
-        raise HTTPException(status_code=404, detail="Transcript not found")
-    return TranscriptResponse(**transcript)
+    try:
+        transcript = await db.transcripts.find_one({"id": transcript_id})
+        if not transcript:
+            raise HTTPException(status_code=404, detail="Transcript not found")
+        return TranscriptResponse(**transcript)
+    except Exception as e:
+        print(f"Error fetching transcript {transcript_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.post("/api/transcripts/{transcript_id}/generate-summary")
 async def generate_summary(transcript_id: str):
