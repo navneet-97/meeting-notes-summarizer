@@ -36,9 +36,8 @@ try:
         client = AsyncIOMotorClient(
             MONGO_URL,
             serverSelectionTimeoutMS=5000,
-            ssl=True,
-            ssl_cert_reqs='CERT_NONE',  # Disable certificate verification
-            tlsInsecure=True  # Allow insecure TLS connections
+            tls=True,
+            tlsAllowInvalidCertificates=True  # Disable certificate verification
         )
     else:
         client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
@@ -50,13 +49,12 @@ try:
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     # Continue execution as the connection might be established later
-    # Use connection string directly with SSL parameters for Atlas
+    # Use connection string directly with TLS parameters for Atlas
     if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
         client = AsyncIOMotorClient(
             MONGO_URL,
-            ssl=True,
-            ssl_cert_reqs='CERT_NONE',
-            tlsInsecure=True
+            tls=True,
+            tlsAllowInvalidCertificates=True
         )
     else:
         client = AsyncIOMotorClient(MONGO_URL)
