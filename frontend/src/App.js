@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import './App.css';
 
-// Set API base URL with fallback for development
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000/';
 
 // Format API URL - handle both full URLs and hostnames from Render

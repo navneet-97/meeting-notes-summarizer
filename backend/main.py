@@ -29,61 +29,11 @@ app.add_middleware(
 
 # MongoDB connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-
-# Modify connection string if using MongoDB Atlas
-if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
-    # Ensure retryWrites and SSL parameters are in the connection string
-    if "?" not in MONGO_URL:
-        MONGO_URL += "?retryWrites=true&w=majority&ssl=true"
-    elif "ssl=" not in MONGO_URL and "tls=" not in MONGO_URL:
-        MONGO_URL += "&ssl=true"
-
-try:
-    # Create client with minimal parameters
-    client = AsyncIOMotorClient(
-        MONGO_URL,
-        serverSelectionTimeoutMS=10000,  # Increased timeout
-        connectTimeoutMS=10000,
-        socketTimeoutMS=10000
-    )
-    
-    # Validate connection
-    client.admin.command('ping')
-    print("Successfully connected to MongoDB")
-    db = client.meeting_notes
-except Exception as e:
-    print(f"Error connecting to MongoDB: {e}")
-    # Continue execution as the connection might be established later
-    client = AsyncIOMotorClient(MONGO_URL)
-    db = client.meeting_notes
+client = AsyncIOMotorClient(MONGO_URL)
+db = client.meeting_notes
 
 # Environment variables
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-# Add startup event to create indexes
-@app.on_event("startup")
-async def create_indexes():
-    max_retries = 3
-    retry_count = 0
-    
-    while retry_count < max_retries:
-        try:
-            # Create indexes for better query performance
-            await db.transcripts.create_index("id", unique=True)
-            await db.transcripts.create_index("created_at")
-            await db.email_logs.create_index("transcript_id")
-            print("Database indexes created successfully")
-            return
-        except Exception as e:
-            retry_count += 1
-            print(f"Error creating database indexes (attempt {retry_count}/{max_retries}): {e}")
-            if retry_count < max_retries:
-                # Wait before retrying (exponential backoff)
-                import asyncio
-                await asyncio.sleep(2 ** retry_count)  # 2, 4, 8 seconds
-            else:
-                print("Failed to create database indexes after multiple attempts")
-                # Continue execution anyway
 
 # Pydantic models
 class TranscriptCreate(BaseModel):
@@ -187,117 +137,87 @@ async def create_transcript(transcript: TranscriptCreate):
         "updated_at": None
     }
     
-    try:
-        await db.transcripts.insert_one(transcript_doc)
-        return TranscriptResponse(**transcript_doc)
-    except Exception as e:
-        print(f"Error creating transcript: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    await db.transcripts.insert_one(transcript_doc)
+    return TranscriptResponse(**transcript_doc)
 
 @app.get("/api/transcripts")
 async def get_transcripts():
     """Get all transcripts"""
-    try:
-        transcripts = []
-        async for doc in db.transcripts.find().sort("created_at", -1):
-            transcripts.append(TranscriptResponse(**doc))
-        return {"transcripts": transcripts}
-    except Exception as e:
-        print(f"Error fetching transcripts: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    transcripts = []
+    async for doc in db.transcripts.find().sort("created_at", -1):
+        transcripts.append(TranscriptResponse(**doc))
+    return {"transcripts": transcripts}
 
 @app.get("/api/transcripts/{transcript_id}", response_model=TranscriptResponse)
 async def get_transcript(transcript_id: str):
     """Get a specific transcript"""
-    try:
-        transcript = await db.transcripts.find_one({"id": transcript_id})
-        if not transcript:
-            raise HTTPException(status_code=404, detail="Transcript not found")
-        return TranscriptResponse(**transcript)
-    except Exception as e:
-        print(f"Error fetching transcript {transcript_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    transcript = await db.transcripts.find_one({"id": transcript_id})
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    return TranscriptResponse(**transcript)
 
 @app.post("/api/transcripts/{transcript_id}/generate-summary")
 async def generate_summary(transcript_id: str):
     """Generate AI summary for a transcript"""
+    transcript = await db.transcripts.find_one({"id": transcript_id})
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
     try:
-        transcript = await db.transcripts.find_one({"id": transcript_id})
-        if not transcript:
-            raise HTTPException(status_code=404, detail="Transcript not found")
+        # Generate summary using Gemini
+        summary = await generate_summary_with_gemini(
+            transcript["original_text"], 
+            transcript["custom_prompt"]
+        )
         
-        try:
-            # Generate summary using Gemini
-            summary = await generate_summary_with_gemini(
-                transcript["original_text"], 
-                transcript["custom_prompt"]
-            )
-            
-            # Update transcript with generated summary
-            try:
-                await db.transcripts.update_one(
-                    {"id": transcript_id},
-                    {
-                        "$set": {
-                            "generated_summary": summary,
-                            "updated_at": datetime.utcnow()
-                        }
-                    }
-                )
-                
-                return {"summary": summary}
-            except Exception as db_error:
-                print(f"Error updating transcript with summary: {db_error}")
-                raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
-            
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error generating summary: {str(e)}")
-    except Exception as db_error:
-        print(f"Error fetching transcript {transcript_id}: {db_error}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
+        # Update transcript with generated summary
+        await db.transcripts.update_one(
+            {"id": transcript_id},
+            {
+                "$set": {
+                    "generated_summary": summary,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        return {"summary": summary}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating summary: {str(e)}")
 
 @app.put("/api/transcripts/{transcript_id}/summary")
 async def update_summary(transcript_id: str, update: TranscriptUpdate):
     """Update the edited summary"""
-    try:
-        transcript = await db.transcripts.find_one({"id": transcript_id})
-        if not transcript:
-            raise HTTPException(status_code=404, detail="Transcript not found")
-        
-        try:
-            await db.transcripts.update_one(
-                {"id": transcript_id},
-                {
-                    "$set": {
-                        "edited_summary": update.edited_summary,
-                        "updated_at": datetime.utcnow()
-                    }
-                }
-            )
-            
-            return {"message": "Summary updated successfully"}
-        except Exception as db_error:
-            print(f"Error updating summary: {db_error}")
-            raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
-    except Exception as db_error:
-        print(f"Error fetching transcript {transcript_id}: {db_error}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
+    transcript = await db.transcripts.find_one({"id": transcript_id})
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    await db.transcripts.update_one(
+        {"id": transcript_id},
+        {
+            "$set": {
+                "edited_summary": update.edited_summary,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    return {"message": "Summary updated successfully"}
 
 @app.post("/api/transcripts/{transcript_id}/email")
 async def send_email(transcript_id: str, email_request: EmailRequest):
     """Send summary via email using Gmail API"""
-    sent_emails = []
-    failed_emails = []
+    transcript = await db.transcripts.find_one({"id": transcript_id})
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Get the summary to send (prefer edited_summary, fallback to generated_summary)
+    summary_to_send = transcript.get("edited_summary") or transcript.get("generated_summary")
+    if not summary_to_send:
+        raise HTTPException(status_code=400, detail="No summary available to send")
     
     try:
-        transcript = await db.transcripts.find_one({"id": transcript_id})
-        if not transcript:
-            raise HTTPException(status_code=404, detail="Transcript not found")
-        
-        # Get the summary to send (prefer edited_summary, fallback to generated_summary)
-        summary_to_send = transcript.get("edited_summary") or transcript.get("generated_summary")
-        if not summary_to_send:
-            raise HTTPException(status_code=400, detail="No summary available to send")
         
         # Prepare email content
         email_body = f"""
@@ -310,6 +230,9 @@ This summary was generated by AI Meeting Notes Summarizer
         """.strip()
         
         # Send email to each recipient
+        sent_emails = []
+        failed_emails = []
+        
         for recipient in email_request.recipients:
             try:
                 # Use the new send_email_smtp function
@@ -332,12 +255,8 @@ This summary was generated by AI Meeting Notes Summarizer
             "failed_emails": failed_emails
         }
         
-        try:
-            await db.email_logs.insert_one(email_log)
-        except Exception as log_error:
-            print(f"Error logging email: {log_error}")
-            # Continue even if logging fails
-            
+        await db.email_logs.insert_one(email_log)
+        
         if failed_emails:
             return {
                 "message": f"Email sent to {len(sent_emails)} recipients, failed for {len(failed_emails)}",
@@ -355,29 +274,18 @@ This summary was generated by AI Meeting Notes Summarizer
             }
             
     except Exception as e:
-        print(f"Error in send_email: {e}")
-        if isinstance(e, HTTPException):
-            raise e
-        
         # Log the failed attempt
-        try:
-            email_log = {
-                "id": str(uuid.uuid4()),
-                "transcript_id": transcript_id,
-                "recipients": email_request.recipients,
-                "subject": email_request.subject,
-                "sent_at": datetime.utcnow(),
-                "status": "failed",
-                "error": str(e)
-            }
-            
-            try:
-                await db.email_logs.insert_one(email_log)
-            except Exception as log_error:
-                print(f"Error logging email failure: {log_error}")
-        except Exception as log_error:
-            print(f"Error creating log entry: {log_error}")
+        email_log = {
+            "id": str(uuid.uuid4()),
+            "transcript_id": transcript_id,
+            "recipients": email_request.recipients,
+            "subject": email_request.subject,
+            "sent_at": datetime.utcnow(),
+            "status": "failed",
+            "error": str(e)
+        }
         
+        await db.email_logs.insert_one(email_log)
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
 @app.delete("/api/transcripts/{transcript_id}")
