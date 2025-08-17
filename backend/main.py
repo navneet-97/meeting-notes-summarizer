@@ -30,7 +30,19 @@ app.add_middleware(
 # MongoDB connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
 try:
-    client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+    # Add SSL parameters for Atlas connections
+    if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
+        client = AsyncIOMotorClient(
+            MONGO_URL,
+            serverSelectionTimeoutMS=5000,
+            ssl=True,
+            ssl_cert_reqs='CERT_NONE',  # Disable certificate verification
+            retryWrites=True,
+            w="majority"
+        )
+    else:
+        client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+    
     # Validate connection
     client.admin.command('ping')
     print("Successfully connected to MongoDB")
@@ -38,7 +50,16 @@ try:
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     # Continue execution as the connection might be established later
-    client = AsyncIOMotorClient(MONGO_URL)
+    if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
+        client = AsyncIOMotorClient(
+            MONGO_URL,
+            ssl=True,
+            ssl_cert_reqs='CERT_NONE',  # Disable certificate verification
+            retryWrites=True,
+            w="majority"
+        )
+    else:
+        client = AsyncIOMotorClient(MONGO_URL)
     db = client.meeting_notes
 
 # Environment variables
@@ -192,65 +213,83 @@ async def get_transcript(transcript_id: str):
 @app.post("/api/transcripts/{transcript_id}/generate-summary")
 async def generate_summary(transcript_id: str):
     """Generate AI summary for a transcript"""
-    transcript = await db.transcripts.find_one({"id": transcript_id})
-    if not transcript:
-        raise HTTPException(status_code=404, detail="Transcript not found")
-    
     try:
-        # Generate summary using Gemini
-        summary = await generate_summary_with_gemini(
-            transcript["original_text"], 
-            transcript["custom_prompt"]
-        )
+        transcript = await db.transcripts.find_one({"id": transcript_id})
+        if not transcript:
+            raise HTTPException(status_code=404, detail="Transcript not found")
         
-        # Update transcript with generated summary
-        await db.transcripts.update_one(
-            {"id": transcript_id},
-            {
-                "$set": {
-                    "generated_summary": summary,
-                    "updated_at": datetime.utcnow()
-                }
-            }
-        )
-        
-        return {"summary": summary}
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating summary: {str(e)}")
+        try:
+            # Generate summary using Gemini
+            summary = await generate_summary_with_gemini(
+                transcript["original_text"], 
+                transcript["custom_prompt"]
+            )
+            
+            # Update transcript with generated summary
+            try:
+                await db.transcripts.update_one(
+                    {"id": transcript_id},
+                    {
+                        "$set": {
+                            "generated_summary": summary,
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+                
+                return {"summary": summary}
+            except Exception as db_error:
+                print(f"Error updating transcript with summary: {db_error}")
+                raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating summary: {str(e)}")
+    except Exception as db_error:
+        print(f"Error fetching transcript {transcript_id}: {db_error}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
 
 @app.put("/api/transcripts/{transcript_id}/summary")
 async def update_summary(transcript_id: str, update: TranscriptUpdate):
     """Update the edited summary"""
-    transcript = await db.transcripts.find_one({"id": transcript_id})
-    if not transcript:
-        raise HTTPException(status_code=404, detail="Transcript not found")
-    
-    await db.transcripts.update_one(
-        {"id": transcript_id},
-        {
-            "$set": {
-                "edited_summary": update.edited_summary,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
-    
-    return {"message": "Summary updated successfully"}
+    try:
+        transcript = await db.transcripts.find_one({"id": transcript_id})
+        if not transcript:
+            raise HTTPException(status_code=404, detail="Transcript not found")
+        
+        try:
+            await db.transcripts.update_one(
+                {"id": transcript_id},
+                {
+                    "$set": {
+                        "edited_summary": update.edited_summary,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            
+            return {"message": "Summary updated successfully"}
+        except Exception as db_error:
+            print(f"Error updating summary: {db_error}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
+    except Exception as db_error:
+        print(f"Error fetching transcript {transcript_id}: {db_error}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(db_error)}")
 
 @app.post("/api/transcripts/{transcript_id}/email")
 async def send_email(transcript_id: str, email_request: EmailRequest):
     """Send summary via email using Gmail API"""
-    transcript = await db.transcripts.find_one({"id": transcript_id})
-    if not transcript:
-        raise HTTPException(status_code=404, detail="Transcript not found")
-    
-    # Get the summary to send (prefer edited_summary, fallback to generated_summary)
-    summary_to_send = transcript.get("edited_summary") or transcript.get("generated_summary")
-    if not summary_to_send:
-        raise HTTPException(status_code=400, detail="No summary available to send")
+    sent_emails = []
+    failed_emails = []
     
     try:
+        transcript = await db.transcripts.find_one({"id": transcript_id})
+        if not transcript:
+            raise HTTPException(status_code=404, detail="Transcript not found")
+        
+        # Get the summary to send (prefer edited_summary, fallback to generated_summary)
+        summary_to_send = transcript.get("edited_summary") or transcript.get("generated_summary")
+        if not summary_to_send:
+            raise HTTPException(status_code=400, detail="No summary available to send")
         
         # Prepare email content
         email_body = f"""
@@ -263,9 +302,6 @@ This summary was generated by AI Meeting Notes Summarizer
         """.strip()
         
         # Send email to each recipient
-        sent_emails = []
-        failed_emails = []
-        
         for recipient in email_request.recipients:
             try:
                 # Use the new send_email_smtp function
@@ -288,8 +324,12 @@ This summary was generated by AI Meeting Notes Summarizer
             "failed_emails": failed_emails
         }
         
-        await db.email_logs.insert_one(email_log)
-        
+        try:
+            await db.email_logs.insert_one(email_log)
+        except Exception as log_error:
+            print(f"Error logging email: {log_error}")
+            # Continue even if logging fails
+            
         if failed_emails:
             return {
                 "message": f"Email sent to {len(sent_emails)} recipients, failed for {len(failed_emails)}",
@@ -307,18 +347,29 @@ This summary was generated by AI Meeting Notes Summarizer
             }
             
     except Exception as e:
-        # Log the failed attempt
-        email_log = {
-            "id": str(uuid.uuid4()),
-            "transcript_id": transcript_id,
-            "recipients": email_request.recipients,
-            "subject": email_request.subject,
-            "sent_at": datetime.utcnow(),
-            "status": "failed",
-            "error": str(e)
-        }
+        print(f"Error in send_email: {e}")
+        if isinstance(e, HTTPException):
+            raise e
         
-        await db.email_logs.insert_one(email_log)
+        # Log the failed attempt
+        try:
+            email_log = {
+                "id": str(uuid.uuid4()),
+                "transcript_id": transcript_id,
+                "recipients": email_request.recipients,
+                "subject": email_request.subject,
+                "sent_at": datetime.utcnow(),
+                "status": "failed",
+                "error": str(e)
+            }
+            
+            try:
+                await db.email_logs.insert_one(email_log)
+            except Exception as log_error:
+                print(f"Error logging email failure: {log_error}")
+        except Exception as log_error:
+            print(f"Error creating log entry: {log_error}")
+        
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
 @app.delete("/api/transcripts/{transcript_id}")
