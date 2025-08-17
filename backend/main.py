@@ -32,8 +32,14 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
 try:
     # Add SSL parameters for Atlas connections
     if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
-        # Use connection string directly without additional parameters
-        client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+        # Use TLS/SSL settings for MongoDB Atlas
+        client = AsyncIOMotorClient(
+            MONGO_URL,
+            serverSelectionTimeoutMS=5000,
+            ssl=True,
+            ssl_cert_reqs='CERT_NONE',  # Disable certificate verification
+            tlsInsecure=True  # Allow insecure TLS connections
+        )
     else:
         client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
     
@@ -44,8 +50,16 @@ try:
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     # Continue execution as the connection might be established later
-    # Use connection string directly without additional parameters
-    client = AsyncIOMotorClient(MONGO_URL)
+    # Use connection string directly with SSL parameters for Atlas
+    if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
+        client = AsyncIOMotorClient(
+            MONGO_URL,
+            ssl=True,
+            ssl_cert_reqs='CERT_NONE',
+            tlsInsecure=True
+        )
+    else:
+        client = AsyncIOMotorClient(MONGO_URL)
     
     db = client.meeting_notes
 
