@@ -26,5 +26,4 @@ services:
         fromService:
           name: meeting-notes-api
           type: web
-          property: url
-        value: https://meeting-notes-api.onrender.com/
+          property: host

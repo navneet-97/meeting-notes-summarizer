@@ -5,8 +5,13 @@ import './App.css';
 // Set API base URL with fallback for development
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000/';
 
-// Ensure API_BASE_URL ends with a slash
+// Format API URL - handle both full URLs and hostnames from Render
 const formatApiUrl = (url) => {
+  // If it's just a hostname from Render (no protocol)
+  if (url && !url.startsWith('http')) {
+    url = `https://${url}`;
+  }
+  // Ensure URL ends with a slash
   return url.endsWith('/') ? url : `${url}/`;
 };
 

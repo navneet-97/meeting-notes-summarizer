@@ -106,7 +106,7 @@ For both services (backend and frontend), you'll need to set up the following en
 - `Pass`: Your Gmail app password
 
 #### Frontend Service
-- `REACT_APP_BACKEND_URL`: This will be automatically set to your backend service URL
+- `REACT_APP_BACKEND_URL`: This will be automatically set to your backend service hostname
 
 ### 4. Deploy
 Click "Apply" and Render will deploy both your backend and frontend services.
