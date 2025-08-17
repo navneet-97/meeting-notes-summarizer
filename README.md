@@ -83,37 +83,6 @@ npm install
 npm start
 ```
 
-## 🌐 Deployment to Render
-
-This project includes a `render.yaml` file for easy deployment to Render.
-
-### 1. Create a Render Account
-Sign up at [render.com](https://render.com) if you don't have an account.
-
-### 2. Connect Your GitHub Repository
-1. Push your code to GitHub
-2. In Render dashboard, click "New" and select "Blueprint"
-3. Connect your GitHub account and select your repository
-4. Render will automatically detect the `render.yaml` file
-
-### 3. Configure Environment Variables
-For both services (backend and frontend), you'll need to set up the following environment variables in the Render dashboard:
-
-#### Backend Service
-- `MONGO_URL`: Your MongoDB connection string (MongoDB Atlas recommended)
-- `GEMINI_API_KEY`: Your Google Gemini API key
-- `Email`: Your Gmail address
-- `Pass`: Your Gmail app password
-
-#### Frontend Service
-- `REACT_APP_BACKEND_URL`: This will be automatically set to your backend service hostname
-
-### 4. Deploy
-Click "Apply" and Render will deploy both your backend and frontend services.
-
-### 5. Access Your Application
-Once deployment is complete, you can access your application at the URLs provided by Render.
-
 ### 4. Backend Setup (Alternative Manual Setup)
 ```bash
 cd backend
@@ -157,65 +126,6 @@ npm start
    - 2-Step Verification → App passwords
    - Generate password for "Mail"
 3. **Use the app password** in your `.env` file
-
-## 🚀 Deployment
-
-### Render Deployment
-
-#### Step 1: Prepare Your Repository
-```bash
-git add .
-git commit -m "Add Render deployment configuration"
-git push origin main
-```
-
-#### Step 2: Deploy Backend to Render
-1. **Go to [render.com](https://render.com/)**
-2. **Sign up/Login with GitHub**
-3. **Click "New +" → "Web Service"**
-4. **Connect your GitHub repository**
-5. **Configure the service**:
-   - **Name**: `meeting-notes-backend`
-   - **Environment**: `Python 3`
-   - **Build Command**: `pip install -r backend/requirements.txt`
-   - **Start Command**: `cd backend && python main.py`
-   - **Root Directory**: Leave empty (root of repo)
-
-#### Step 3: Set Backend Environment Variables
-In Render dashboard, add these environment variables:
-```
-MONGO_URL=mongodb+srv://username:password@cluster.mongodb.net/meeting_notes?retryWrites=true&w=majority
-GEMINI_API_KEY=your_gemini_api_key
-Email=tewatiatewatia382@gmail.com
-Pass=ylaw cuzv uzuy elfx
-```
-
-#### Step 4: Deploy Frontend to Render
-1. **In the same project, click "New +" → "Static Site"**
-2. **Connect the same GitHub repository**
-3. **Configure the service**:
-   - **Name**: `meeting-notes-frontend`
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `build`
-
-#### Step 5: Set Frontend Environment Variable
-Add this environment variable:
-```
-REACT_APP_BACKEND_URL=https://your-backend-name.onrender.com
-```
-
-#### Step 6: Deploy
-- Both services will deploy automatically
-- Render provides HTTPS URLs for both frontend and backend
-- Environment variables are securely managed in Render dashboard
-
-**Benefits of Render:**
-- ✅ Free tier available (750 hours/month)
-- ✅ Automatic HTTPS and custom domains
-- ✅ Easy environment variable management
-- ✅ Built-in monitoring and logs
-- ✅ Simple GitHub integration
 
 ## 📁 Project Structure
 
