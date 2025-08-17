@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import './App.css';
 
-const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
+// Set API base URL with fallback for development
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000/';
+
+// Ensure API_BASE_URL ends with a slash
+const formatApiUrl = (url) => {
+  return url.endsWith('/') ? url : `${url}/`;
+};
+
+const formattedApiUrl = formatApiUrl(API_BASE_URL);
 
 function App() {
   const [transcripts, setTranscripts] = useState([]);
@@ -25,7 +33,7 @@ function App() {
 
   const loadTranscripts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}api/transcripts`);
+      const response = await fetch(`${formattedApiUrl}api/transcripts`);
       const data = await response.json();
       setTranscripts(data.transcripts || []);
     } catch (error) {
@@ -41,7 +49,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}api/transcripts`, {
+      const response = await fetch(`${formattedApiUrl}api/transcripts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +88,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}api/transcripts/${currentTranscript.id}/generate-summary`, {
+      const response = await fetch(`${formattedApiUrl}api/transcripts/${currentTranscript.id}/generate-summary`, {
         method: 'POST',
       });
 
@@ -107,7 +115,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}api/transcripts/${currentTranscript.id}/summary`, {
+      const response = await fetch(`${formattedApiUrl}api/transcripts/${currentTranscript.id}/summary`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +157,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}api/transcripts/${currentTranscript.id}/email`, {
+      const response = await fetch(`${formattedApiUrl}api/transcripts/${currentTranscript.id}/email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +186,7 @@ function App() {
 
   const loadTranscript = async (transcriptId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}api/transcripts/${transcriptId}`);
+      const response = await fetch(`${formattedApiUrl}api/transcripts/${transcriptId}`);
       if (response.ok) {
         const transcript = await response.json();
         setCurrentTranscript(transcript);
@@ -194,7 +202,7 @@ function App() {
     if (!window.confirm('Are you sure you want to delete this transcript?')) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}api/transcripts/${transcriptId}`, {
+      const response = await fetch(`${formattedApiUrl}api/transcripts/${transcriptId}`, {
         method: 'DELETE',
       });
 

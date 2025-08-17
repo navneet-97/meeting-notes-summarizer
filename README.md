@@ -13,8 +13,9 @@ An intelligent application that automatically summarizes meeting transcripts usi
 
 ## 🚀 Live Demo
 
-- **Frontend**: [Your Render Frontend URL]
-- **Backend API**: [Your Render Backend URL]
+Once deployed, your application will be available at:
+- **Frontend**: Your Render Frontend URL (e.g., https://meeting-notes-frontend.onrender.com)
+- **Backend API**: Your Render Backend URL (e.g., https://meeting-notes-api.onrender.com)
 
 ## 🛠️ Tech Stack
 
@@ -30,7 +31,7 @@ An intelligent application that automatically summarizes meeting transcripts usi
 - **React Textarea Autosize** - Auto-resizing text areas
 
 ### Deployment
-- **Render** - Full-stack deployment platform
+- **Render** - Full-stack deployment platform with automatic deployments from GitHub
 
 ## 📋 Prerequisites
 
@@ -48,7 +49,72 @@ git clone https://github.com/yourusername/meeting-notes-summarizer.git
 cd meeting-notes-summarizer
 ```
 
-### 2. Backend Setup
+### 2. Set Up Environment Variables
+
+#### Backend
+Create a `.env` file in the `backend` directory using the provided `.env.example` template:
+```bash
+cd backend
+cp .env.example .env
+# Edit .env with your actual credentials
+```
+
+#### Frontend
+Create a `.env` file in the `frontend` directory using the provided `.env.example` template:
+```bash
+cd frontend
+cp .env.example .env
+# Edit .env with your actual backend URL
+```
+
+### 3. Local Development
+
+#### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+#### Frontend
+```bash
+cd frontend
+npm install
+npm start
+```
+
+## 🌐 Deployment to Render
+
+This project includes a `render.yaml` file for easy deployment to Render.
+
+### 1. Create a Render Account
+Sign up at [render.com](https://render.com) if you don't have an account.
+
+### 2. Connect Your GitHub Repository
+1. Push your code to GitHub
+2. In Render dashboard, click "New" and select "Blueprint"
+3. Connect your GitHub account and select your repository
+4. Render will automatically detect the `render.yaml` file
+
+### 3. Configure Environment Variables
+For both services (backend and frontend), you'll need to set up the following environment variables in the Render dashboard:
+
+#### Backend Service
+- `MONGO_URL`: Your MongoDB connection string (MongoDB Atlas recommended)
+- `GEMINI_API_KEY`: Your Google Gemini API key
+- `Email`: Your Gmail address
+- `Pass`: Your Gmail app password
+
+#### Frontend Service
+- `REACT_APP_BACKEND_URL`: This will be automatically set to your backend service URL
+
+### 4. Deploy
+Click "Apply" and Render will deploy both your backend and frontend services.
+
+### 5. Access Your Application
+Once deployment is complete, you can access your application at the URLs provided by Render.
+
+### 4. Backend Setup (Alternative Manual Setup)
 ```bash
 cd backend
 pip install -r requirements.txt
