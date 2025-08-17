@@ -29,18 +29,23 @@ app.add_middleware(
 
 # MongoDB connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+
+# Modify connection string if using MongoDB Atlas
+if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
+    # Ensure retryWrites and SSL parameters are in the connection string
+    if "?" not in MONGO_URL:
+        MONGO_URL += "?retryWrites=true&w=majority&ssl=true"
+    elif "ssl=" not in MONGO_URL and "tls=" not in MONGO_URL:
+        MONGO_URL += "&ssl=true"
+
 try:
-    # Add SSL parameters for Atlas connections
-    if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
-        # Use TLS/SSL settings for MongoDB Atlas
-        client = AsyncIOMotorClient(
-            MONGO_URL,
-            serverSelectionTimeoutMS=5000,
-            tls=True,
-            tlsAllowInvalidCertificates=True  # Disable certificate verification
-        )
-    else:
-        client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+    # Create client with minimal parameters
+    client = AsyncIOMotorClient(
+        MONGO_URL,
+        serverSelectionTimeoutMS=10000,  # Increased timeout
+        connectTimeoutMS=10000,
+        socketTimeoutMS=10000
+    )
     
     # Validate connection
     client.admin.command('ping')
@@ -49,16 +54,7 @@ try:
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     # Continue execution as the connection might be established later
-    # Use connection string directly with TLS parameters for Atlas
-    if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
-        client = AsyncIOMotorClient(
-            MONGO_URL,
-            tls=True,
-            tlsAllowInvalidCertificates=True
-        )
-    else:
-        client = AsyncIOMotorClient(MONGO_URL)
-    
+    client = AsyncIOMotorClient(MONGO_URL)
     db = client.meeting_notes
 
 # Environment variables
@@ -67,14 +63,27 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Add startup event to create indexes
 @app.on_event("startup")
 async def create_indexes():
-    try:
-        # Create indexes for better query performance
-        await db.transcripts.create_index("id", unique=True)
-        await db.transcripts.create_index("created_at")
-        await db.email_logs.create_index("transcript_id")
-        print("Database indexes created successfully")
-    except Exception as e:
-        print(f"Error creating database indexes: {e}")
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            # Create indexes for better query performance
+            await db.transcripts.create_index("id", unique=True)
+            await db.transcripts.create_index("created_at")
+            await db.email_logs.create_index("transcript_id")
+            print("Database indexes created successfully")
+            return
+        except Exception as e:
+            retry_count += 1
+            print(f"Error creating database indexes (attempt {retry_count}/{max_retries}): {e}")
+            if retry_count < max_retries:
+                # Wait before retrying (exponential backoff)
+                import asyncio
+                await asyncio.sleep(2 ** retry_count)  # 2, 4, 8 seconds
+            else:
+                print("Failed to create database indexes after multiple attempts")
+                # Continue execution anyway
 
 # Pydantic models
 class TranscriptCreate(BaseModel):
