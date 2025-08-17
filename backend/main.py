@@ -35,8 +35,8 @@ try:
         client = AsyncIOMotorClient(
             MONGO_URL,
             serverSelectionTimeoutMS=5000,
-            ssl=True,
-            ssl_cert_reqs='CERT_NONE',  # Disable certificate verification
+            tls=True,
+            tlsAllowInvalidCertificates=True,  # Disable certificate verification
             retryWrites=True,
             w="majority"
         )
@@ -53,8 +53,8 @@ except Exception as e:
     if "mongodb+srv" in MONGO_URL or ".mongodb.net" in MONGO_URL:
         client = AsyncIOMotorClient(
             MONGO_URL,
-            ssl=True,
-            ssl_cert_reqs='CERT_NONE',  # Disable certificate verification
+            tls=True,
+            tlsAllowInvalidCertificates=True,  # Disable certificate verification
             retryWrites=True,
             w="majority"
         )
